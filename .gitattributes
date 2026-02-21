@@ -1,0 +1,7 @@
+* text=auto
+*.xml text
+*.py text
+*.obj binary
+*.stl binary
+*.dae binary
+*.png binary
