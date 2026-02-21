@@ -21,8 +21,8 @@ def main():
     m = mujoco.MjModel.from_xml_path(SCENE_PATH)
     d = mujoco.MjData(m)
 
-    # ViperX wrapper (No URDF needed, uses MuJoCo directly)
-    robot = ViperX(m, d)
+    # ViperX wrapper (Now uses Pinocchio just like Franka, no arguments needed!)
+    robot = ViperX()
     
     # Mark-2 IK Controller
     # ViperX is a 6-DOF arm, so it uses 6 active joints
@@ -46,17 +46,20 @@ def main():
     q_target = np.zeros(m.nq)
     q_target[:n_joints] = Q_HOME[:n_joints]
 
-    # Capture initial downward orientation using the "pinch" site
-    home_pose = robot.forward_kinematics(Q_HOME)
+    # FIX: The URDF has continuous joints which makes Pinocchio's 'nq' larger than MuJoCo's 'nq'.
+    # We must use pin.neutral() to safely initialize Pinocchio's complex rotation states.
+    q_home_pin = pin.neutral(robot.model)
+    q_home_pin[:6] = Q_HOME[:6]
+    
+    # Capture initial downward orientation using the padded NumPy array
+    home_pose = robot.forward_kinematics(q_home_pin)
     fixed_rotation = home_pose.rotation.copy()
     HOME_POS = home_pose.translation.copy()
 
     # -------------------------------
     # Dynamic Waypoints
     # -------------------------------
-    # CRITICAL FIX 2: Raise Z-height to 0.045
-    # The pinch site is centered, but the fingers extend 2.5cm further down.
-    # Aiming for 0.045 allows the fingers to wrap the cube without hitting the floor.
+    # Using 'vx300s/ee_gripper_link' directly aligns with the pinch center.
     PICK_POS = np.array([0.35, 0.0, 0.045])
     PLACE_POS = np.array([0.0, 0.35, 0.1])
     
@@ -84,7 +87,9 @@ def main():
         while viewer.is_running():
             step_start = time.time()
 
-            q_current = d.qpos[:m.nq].copy()
+            # Safely map MuJoCo's 6 arm joints into Pinocchio's complex URDF structure
+            q_pin = pin.neutral(robot.model)
+            q_pin[:6] = d.qpos[:6].copy()
 
             if current_state_idx < len(states):
                 state = states[current_state_idx]
@@ -92,8 +97,8 @@ def main():
                 # 1. Compute IK target
                 target_se3 = pin.SE3(fixed_rotation, state["pos"])
                 
-                # Compute differential velocity. Provide Q_HOME for nullspace resting.
-                dq, err, done = ik.compute_velocity(q_current, target_se3, q_posture=np.array(Q_HOME))
+                # Compute differential velocity. Provide the safely padded q_home_pin for nullspace resting.
+                dq, err, done = ik.compute_velocity(q_pin, target_se3, q_posture=q_home_pin)
 
                 # 2. Velocity to Position Integration (CRITICAL FOR VIPERX)
                 # ViperX uses <position> actuators, not velocity overrides.

@@ -1,45 +1,49 @@
 import numpy as np
 import pinocchio as pin
-import mujoco
+
+try:
+    from pinocchio.robot_wrapper import RobotWrapper
+except ImportError:
+    RobotWrapper = pin.RobotWrapper
+
+from .config import URDF_PATH, PACKAGE_DIR, EE_FRAME
 
 class ViperX:
     """
-    MuJoCo-native Pinocchio-compatible Robot Wrapper.
-    Extracts Kinematics and Jacobians directly from MuJoCo,
-    bypassing the need for an external URDF completely!
+    Standardized Pinocchio-compatible Robot Wrapper for ViperX.
+    Mirrors the exact API of the FrankaPanda class.
     """
-    def __init__(self, model, data):
-        self.model = model
-        self.data = data
+    def __init__(self):
+        # Build Pinocchio model from URDF, resolving mesh paths dynamically
+        self.robot = RobotWrapper.BuildFromURDF(
+            URDF_PATH,
+            package_dirs=[PACKAGE_DIR]
+        )
+
+        self.model = self.robot.model
+        self.data = self.robot.data
         
-        # The 'pinch' site is exactly between the two fingers.
-        self.ee_site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, "pinch")
+        # Look up the ID for the end-effector frame from the URDF
+        self.ee_frame_id = self.model.getFrameId(EE_FRAME)
+        
+        # SAFEGUARD: Prevent silent C++ segfaults!
+        # If the frame isn't found, getFrameId returns model.nframes. 
+        # This will raise a clear Python error instead of crashing silently.
+        if self.ee_frame_id >= self.model.nframes:
+            raise ValueError(f"CRITICAL ERROR: EE_FRAME '{EE_FRAME}' not found in your URDF!")
 
     def forward_kinematics(self, q):
-        # Sync MuJoCo state
-        self.data.qpos[:len(q)] = q
-        mujoco.mj_kinematics(self.model, self.data)
-        
-        # Fetch position and rotation from the 'pinch' site
-        pos = self.data.site_xpos[self.ee_site_id]
-        rot = self.data.site_xmat[self.ee_site_id].reshape(3, 3)
-        return pin.SE3(rot, pos.copy())
+        """Computes the SE3 pose of the end-effector."""
+        pin.forwardKinematics(self.model, self.data, q)
+        pin.updateFramePlacement(self.model, self.data, self.ee_frame_id)
+        return self.data.oMf[self.ee_frame_id]
 
     def jacobian(self, q):
-        # Sync MuJoCo state and update Center of Mass (required for jacobian calculation)
-        self.data.qpos[:len(q)] = q
-        mujoco.mj_kinematics(self.model, self.data)
-        mujoco.mj_comPos(self.model, self.data)
-        
-        # Compute MuJoCo Jacobian (World Frame)
-        jacp = np.zeros((3, self.model.nv))
-        jacr = np.zeros((3, self.model.nv))
-        mujoco.mj_jacSite(self.model, self.data, jacp, jacr, self.ee_site_id)
-        
-        # Rotate Jacobian to LOCAL Frame to match Pinocchio / IKController_m2 expectations
-        R_T = self.data.site_xmat[self.ee_site_id].reshape(3, 3).T
-        J_local = np.zeros((6, self.model.nv))
-        J_local[:3, :] = R_T @ jacp
-        J_local[3:, :] = R_T @ jacr
-        
-        return J_local
+        """Computes the 6xN geometric Jacobian in the LOCAL frame."""
+        return pin.computeFrameJacobian(
+            self.model,
+            self.data,
+            q,
+            self.ee_frame_id,
+            pin.LOCAL
+        )
