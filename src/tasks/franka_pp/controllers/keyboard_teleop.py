@@ -15,13 +15,13 @@ class KeyboardTeleop:
         self.speed = 0.25  
         
         # Friction applied to the virtual target. 
+        # At 500Hz physics, a 0.5 decay zeroes out velocity in 4ms! Since OS keyboard 
+        # repeat rates are ~30Hz (33ms), the robot would severely stutter. 
+        # 0.98 provides buttery smooth gliding between OS key events.
         self.decay = 0.98   
         
         # Spacebar cooldown to prevent rapid flickering from OS key-repeat
         self.last_toggle_time = 0.0
-        
-        # NEW: Episode Reset Flag
-        self.reset_requested = False
 
     def key_callback(self, keycode):
         """
@@ -40,11 +40,6 @@ class KeyboardTeleop:
         try:
             key = chr(keycode).upper()
         except ValueError:
-            return
-
-        # NEW: Manual Episode Reset Hook
-        if key == 'R':
-            self.reset_requested = True
             return
 
         # Map WASD / QE to Cartesian X, Y, Z axes

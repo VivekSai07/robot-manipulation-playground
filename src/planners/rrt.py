@@ -12,11 +12,10 @@ class RRT:
     Mark-5 Joint-Space Rapidly-Exploring Random Tree (RRT)
     
     Features:
-    - Native MuJoCo Collision Checking (Forward Kinematics injection)
-    - Goal Biasing (Speeds up search dramatically)
-    - Path Shortcut Smoothing (Removes jagged random motions)
+    - Native MuJoCo Collision Checking
+    - Dynamic Clearance Bubbles for specific obstacles
     """
-    def __init__(self, model, data, active_joint_indices, step_size=0.1, goal_bias=0.1, max_iter=3000):
+    def __init__(self, model, data, active_joint_indices, step_size=0.1, goal_bias=0.1, max_iter=3000, obstacle_names=None, clearance=0.0):
         self.m = model
         self.d = data
         self.active_idx = np.array(active_joint_indices)
@@ -24,41 +23,48 @@ class RRT:
         self.step_size = step_size
         self.goal_bias = goal_bias
         self.max_iter = max_iter
+        self.clearance = clearance
         
-        # Extract joint limits for the active arm joints to define the bounding box of our search
+        # Look up and cache all geometry IDs belonging to the designated obstacles
+        self.obstacle_geom_ids = set()
+        if obstacle_names:
+            for name in obstacle_names:
+                body_id = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_BODY, name)
+                if body_id != -1:
+                    for i in range(self.m.ngeom):
+                        if self.m.geom_bodyid[i] == body_id:
+                            self.obstacle_geom_ids.add(i)
+        
         self.q_min = self.m.jnt_range[self.active_idx, 0]
         self.q_max = self.m.jnt_range[self.active_idx, 1]
-        
-        # Failsafe: Handle continuous joints that might have [0, 0] as their limits
         self.q_min[self.q_min == 0] = -np.pi
         self.q_max[self.q_max == 0] = np.pi
 
     def _check_collision(self, q):
         """
         Temporarily sets the robot state and queries the MuJoCo collision engine.
-        Does NOT advance simulation time.
+        Applies a strict clearance threshold ONLY to the specified obstacles.
         """
-        # 1. Backup current true simulation state
         qpos_backup = self.d.qpos.copy()
-        
-        # 2. Set test state (Ghost Arm)
         self.d.qpos[self.active_idx] = q
         
-        # 3. Step ONLY kinematics and collisions (DO NOT step physics dynamics!)
         mujoco.mj_kinematics(self.m, self.d)
         mujoco.mj_collision(self.m, self.d)
         
         in_collision = False
         for i in range(self.d.ncon):
             contact = self.d.contact[i]
+            g1, g2 = contact.geom1, contact.geom2
             
-            # A negative distance indicates actual penetration/collision.
-            # We use a tiny threshold (-1e-4) to ignore resting contacts (e.g. cube on table).
-            if contact.dist < -1e-4:
+            # If the contact involves our wall, use the safety clearance!
+            # Otherwise, use standard strict collision (to let the robot touch the floor/cube).
+            is_obstacle = (g1 in self.obstacle_geom_ids) or (g2 in self.obstacle_geom_ids)
+            threshold = self.clearance if is_obstacle else -1e-4
+            
+            if contact.dist < threshold:
                 in_collision = True
                 break
                 
-        # 4. Restore true simulation state perfectly
         self.d.qpos[:] = qpos_backup
         mujoco.mj_kinematics(self.m, self.d)
         mujoco.mj_collision(self.m, self.d)

@@ -25,6 +25,11 @@
 
   <worldbody>
     <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
+
+    <!-- ================= WORKSPACE CAMERA ================= -->
+    <!-- Positioned 1 meter high, looking directly down at the table -->
+    <camera name="workspace_cam" pos="0.45 0 0.8" quat="1 0 0 0" />
+
     <!-- ================= FLOOR (HARDENED CONTACT) ================= -->
     <!-- Added friction + solref/solimp to prevent penetration -->
     <geom name="floor"
@@ -35,21 +40,44 @@
           solref="0.002 1"
           solimp="0.9 0.95 0.001"/>
 
-    <!-- ================= TARGET CUBE ================= -->
-    <!-- Slightly hardened contact + better friction for grasping -->
-    <body name="target_cube" pos="0.45 0.0 0.02">
-      <freejoint/>
+    <!-- ================= OBSTACLE WALL ================= -->
+    <!-- Placed directly between the pick zone and the drop zone. 
+         Forces the RRT to plan an arcing motion over the top! -->
+    <!-- <body name="obstacle_wall" pos="0.2 0.25 0.15"> -->
+      <!-- WIDENED TO 100cm (half-width 0.5) -->
+      <!-- CRITICAL FIX: Added margin="0.05" and gap="0.05" to force the collision 
+           engine to track distance up to 5cm away without applying physical forces! -->
+      <!-- <geom type="box" size="0.5 0.02 0.15" rgba="0.2 0.5 0.8 0.6" mass="100" margin="0.02" gap="0.02" /> -->
+    <!-- </body> -->
 
-      <geom name="cube_geom"
-            type="box"
-            size="0.02 0.02 0.02"
-            rgba="0.8 0.2 0.2 1"
-            mass="0.05"
-            friction="1.2 0.005 0.0001"
-            solref="0.002 1"
-            solimp="0.9 0.95 0.001"
-            margin="0.001"/>
+    <!-- ================= TARGET CUBES ================= -->
+    
+    <!-- RED CUBE -->
+    <body name="target_cube_red" pos="0.45 0.0 0.02">
+      <freejoint/>
+      <geom name="cube_geom_red" type="box" size="0.02 0.02 0.02" rgba="0.8 0.2 0.2 1" mass="0.05"
+            friction="1.2 0.005 0.0001" solref="0.002 1" solimp="0.9 0.95 0.001" margin="0.001"/>
     </body>
 
+    <!-- GREEN CUBE -->
+    <body name="target_cube_green" pos="0.35 0.2 0.02">
+      <freejoint/>
+      <geom name="cube_geom_green" type="box" size="0.02 0.02 0.02" rgba="0.2 0.8 0.2 1" mass="0.05"
+            friction="1.2 0.005 0.0001" solref="0.002 1" solimp="0.9 0.95 0.001" margin="0.001"/>
+    </body>
+
+    <!-- BLUE CUBE -->
+    <body name="target_cube_blue" pos="0.35 -0.2 0.02">
+      <freejoint/>
+      <geom name="cube_geom_blue" type="box" size="0.02 0.02 0.02" rgba="0.2 0.2 0.8 1" mass="0.05"
+            friction="1.2 0.005 0.0001" solref="0.002 1" solimp="0.9 0.95 0.001" margin="0.001"/>
+    </body>
+
+    <!-- YELLOW CUBE -->
+    <body name="target_cube_yellow" pos="0.45 0.2 0.02">
+      <freejoint/>
+      <geom name="cube_geom_yellow" type="box" size="0.02 0.02 0.02" rgba="0.8 0.8 0.2 1" mass="0.05"
+            friction="1.2 0.005 0.0001" solref="0.002 1" solimp="0.9 0.95 0.001" margin="0.001"/>
+    </body>
   </worldbody>
 </mujoco>
