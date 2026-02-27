@@ -7,38 +7,11 @@
 
 ## Table of Contents
 
-- [Architectural Principles](#-1-architectural-principles)
-- [Physics & Simulation Bugs](#-2-physics--simulation-bugs-and-how-we-fixed-them)
-- [The Iron Grip — Mastering MuJoCo Contacts](#-3-the-iron-grip--mastering-mujoco-contacts)
-- [The Grand Lesson: Kinematics vs. Dynamics](#-4-the-grand-lesson-kinematics-vs-dynamics)
+- [Physics & Simulation Bugs](#-1-physics--simulation-bugs-and-how-we-fixed-them)
+- [The Iron Grip — Mastering MuJoCo Contacts](#-2-the-iron-grip--mastering-mujoco-contacts)
+- [The Grand Lesson: Kinematics vs. Dynamics](#-3-the-grand-lesson-kinematics-vs-dynamics)
 
----
-
-## 🏗️ 1. Architectural Principles
-
-> The transition from *"writing scripts"* to *"building a robotics framework."*
-
-### Separation of Concerns
-
-Never mix robot definitions with task logic. The project follows a strict directory structure:
-
-| Directory | Purpose |
-|---|---|
-| `robots/` | XMLs, URDFs, and a `robot.py` wrapper — **Hardware** |
-| `controllers/` | Math and solvers like IK — **Brain** |
-| `tasks/` | State machines and viewer loops — **Execution** |
-
-### Universal API
-
-Every robot (Franka, ViperX, WidowX) must expose the **exact same API** via `config.py` (e.g., `ACTIVE_JOINTS`, `ARM_DOF`, `Q_HOME`). This allows `pick_and_place.py` to be completely **robot-agnostic**.
-
-### Native MuJoCo vs. URDF
-
-While Pinocchio natively loves URDFs, we learned we can completely bypass them by extracting Jacobians and Kinematics directly from MuJoCo's engine (`mj_jacSite`, `mj_kinematics`). This is a massive time-saver for robots without clean URDFs (like the ViperX).
-
----
-
-## 🔴 2. Physics & Simulation Bugs (And How We Fixed Them)
+## 🔴 1. Physics & Simulation Bugs (And How We Fixed Them)
 
 ### Bug 1: The "Blind Grasp" — `TypeError: unhashable type: 'numpy.ndarray'`
 
@@ -80,7 +53,7 @@ While Pinocchio natively loves URDFs, we learned we can completely bypass them b
 
 ---
 
-## 🟢 3. The "Iron Grip" — Mastering MuJoCo Contacts
+## 🟢 2. The "Iron Grip" — Mastering MuJoCo Contacts
 
 > Why the cube kept slipping out of the fingers, and how to create a perfect grasp.
 
@@ -111,7 +84,7 @@ The default `deepmind actuator8` PD controller was only generating ~2 Newtons of
 
 ---
 
-## 🚀 4. The Grand Lesson: Kinematics vs. Dynamics
+## 🚀 3. The Grand Lesson: Kinematics vs. Dynamics
 
 > The single most important realization of the **Mark-2** update.
 
@@ -140,4 +113,4 @@ The arm now moves using **finite, simulated motor torques**. Because it has real
 
 ---
 
-*End of Log. Ready for Mark-3.*
+*End of Log.*
