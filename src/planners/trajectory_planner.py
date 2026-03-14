@@ -4,7 +4,7 @@ import pinocchio as pin
 class TaskSpaceTrajectory:
     """
     Mark-3 Task Space Trajectory Generator
-    Generates time-scaled paths between two SE3 poses (Cartesian Interpolation).
+    Generates time-scaled paths between two SE3 poses.
     """
     def __init__(self, start_pose, end_pose, duration, method="cubic"):
         self.start_pose = start_pose
@@ -23,7 +23,14 @@ class TaskSpaceTrajectory:
         else:
             s = alpha
             
-        return pin.SE3.Interpolate(self.start_pose, self.end_pose, s)
+        # CRITICAL FIX: Decoupled Interpolation!
+        # Instead of standard SE3 interpolation (which generates a screw/arc motion),
+        # we force the translation to follow a strict Euclidean straight line,
+        # while letting the Pinocchio handle the rotational SLERP safely.
+        se3_interp = pin.SE3.Interpolate(self.start_pose, self.end_pose, s)
+        straight_line_trans = self.start_pose.translation + s * (self.end_pose.translation - self.start_pose.translation)
+        
+        return pin.SE3(se3_interp.rotation, straight_line_trans)
 
 class JointSpaceTrajectory:
     """
