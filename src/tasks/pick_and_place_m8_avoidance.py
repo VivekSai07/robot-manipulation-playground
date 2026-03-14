@@ -45,7 +45,7 @@ def generate_recovery_states(home_pos):
     ]
 
 def main():
-    TARGET_COLOR = "yellow"
+    TARGET_COLOR = "red"
     TARGET_BODY = f"target_cube_{TARGET_COLOR}"
 
     print(f"🚀 Initializing Mark-8 Reactive Agent (Target: {TARGET_COLOR})...")

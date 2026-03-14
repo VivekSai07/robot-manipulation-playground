@@ -43,12 +43,12 @@
     <!-- ================= OBSTACLE WALL ================= -->
     <!-- Placed directly between the pick zone and the drop zone. 
          Forces the RRT to plan an arcing motion over the top! -->
-    <!-- <body name="obstacle_wall" pos="0.2 0.25 0.15"> -->
+    <body name="obstacle_wall" pos="0.2 0.25 0.15">
       <!-- WIDENED TO 100cm (half-width 0.5) -->
       <!-- CRITICAL FIX: Added margin="0.05" and gap="0.05" to force the collision 
            engine to track distance up to 5cm away without applying physical forces! -->
-      <!-- <geom type="box" size="0.5 0.02 0.15" rgba="0.2 0.5 0.8 0.6" mass="100" margin="0.02" gap="0.02" /> -->
-    <!-- </body> -->
+      <geom type="box" size="0.5 0.02 0.15" rgba="0.2 0.5 0.8 0.6" mass="100" margin="0.02" gap="0.02" />
+    </body>
 
     <!-- ================= TARGET CUBES ================= -->
     
