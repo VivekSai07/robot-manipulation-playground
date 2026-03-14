@@ -1,0 +1,82 @@
+<mujoco model="panda yolo scene">
+  <include file="panda.xml"/>
+
+  <statistic center="0.3 0 0.4" extent="1"/>
+
+  <!-- ================= PHYSICS STABILIZATION ================= -->
+  <option timestep="0.002"
+          iterations="100"
+          solver="Newton"
+          gravity="0 0 -9.81"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="120" elevation="-20"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+      markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+    
+    <!-- Orange Asset -->
+    <texture name="orange_tex" type="2d" file="C:/Users/Vivek Sai/Downloads/Mujoco/MyLearningSpace/src/robots/franka_panda/model/obj_assets/orange/texture_map.png" />
+    <material name="orange_mat" texture="orange_tex" specular="0.1" shininess="0.1" />
+    <mesh name="orange_mesh" file="C:/Users/Vivek Sai/Downloads/Mujoco/MyLearningSpace/src/robots/franka_panda/model/obj_assets/orange/textured.obj" scale="0.8 0.8 0.8" />
+    
+    <!-- Square Plate -->
+    <texture name="plate_tex" type="2d" file="C:/Users/Vivek Sai/Downloads/Mujoco/MyLearningSpace/src/robots/franka_panda/model/obj_assets/square_plate/materials/textures/texture.png" />
+    <material name="plate_mat" texture="plate_tex" specular="0.2" shininess="0.2" />
+    <mesh name="square_plate" file="C:/Users/Vivek Sai/Downloads/Mujoco/MyLearningSpace/src/robots/franka_panda/model/obj_assets/square_plate/meshes/model.obj" scale="1.0 1.0 1.0"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
+
+    <!-- ================= AI WORKSPACE CAMERA ================= -->
+    <!-- CRITICAL AI FIX: Moved to X=0.9, Z=0.45. 
+         Angled downwards and towards the robot so YOLO can see object profiles! 
+         xyaxes maps local camera axes to world coordinates to achieve the pitch. -->
+    <camera name="workspace_cam" pos="0.9 0.0 0.45" xyaxes="0 1 0 -0.5 0 1" />
+
+    <!-- ================= FLOOR ================= -->
+    <geom name="floor"
+          size="0 0 0.05"
+          type="plane"
+          material="groundplane"
+          friction="1.0 0.005 0.0001"
+          solref="0.002 1"
+          solimp="0.9 0.95 0.001"/>
+
+    <!-- ================= SEMANTIC AI TARGETS ================= -->
+    
+    <!-- THE ORANGE (Imported Mesh) -->
+    <body name="target_orange" pos="0.45 0.0 0.04">
+      <freejoint/>
+      <!-- We use a sphere primitive for collision (Iron Grip) and the mesh for visual (YOLO) -->
+      <geom type="sphere" size="0.04" rgba="0 0 0 0" mass="0.05" group="3"
+            friction="3.0 0.1 0.0001" solref="0.002 1" solimp="0.9 0.95 0.001" margin="0.001"/>
+      <!-- Visual Mesh -->
+      <geom type="mesh" mesh="orange_mesh" material="orange_mat" mass="0" contype="0" conaffinity="0" group="1" />
+    </body>
+
+    <!-- THE PLATE (Imported Mesh) -->
+    <body name="target_plate" pos="0.35 0.15 0.005">
+      <freejoint/>
+      <!-- We use a primitive for collision (Iron Grip) and the mesh for visual (YOLO) -->
+      <geom type="cylinder" size="0.1 0.015" rgba="0 0 0 0" mass="0.05" group="3"
+            friction="3.0 0.1 0.0001" solref="0.002 1" solimp="0.9 0.95 0.001" margin="0.001"/>
+      <geom type="mesh" mesh="square_plate" material="plate_mat" mass="0" contype="0" conaffinity="0" group="1" />
+    </body>
+
+    <!-- THE DISTRACTOR (Box) -->
+    <body name="target_box" pos="0.35 -0.15 0.02">
+      <freejoint/>
+      <geom name="box_geom" type="box" size="0.02 0.02 0.02" rgba="0.8 0.8 0.2 1" mass="0.05"
+            friction="1.2 0.005 0.0001" solref="0.002 1" solimp="0.9 0.95 0.001" margin="0.001"/>
+    </body>
+
+  </worldbody>
+</mujoco>
