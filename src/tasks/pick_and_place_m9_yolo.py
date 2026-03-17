@@ -146,6 +146,12 @@ def main():
                     for idx in ACTIVE_JOINTS:
                         d.ctrl[idx] = q_target[idx]
                         
+                    # CRITICAL FIX 1: Hold the gripper OPEN while scanning!
+                    # If we don't command the gripper, it defaults to 0 (Closed).
+                    # When the fingers close empty, their collision meshes intersect,
+                    # causing RRT to instantly fail with "Start position in collision!"
+                    grasp_sys.command(255)
+                        
                     if t_state > state["duration"]:
                         print(f"🧠 YOLO is searching for: {list(CLASS_TO_BODY.keys())}...")
                         

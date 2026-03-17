@@ -126,8 +126,8 @@ def main():
     stow_pose = robot.forward_kinematics(q_stow_pin)
     STOW_POS = stow_pose.translation.copy()
 
-    # Defaults
-    grasp_sys = None
+    # FIX 1: Initialize dummy GraspController to manage gripper state during IDLE
+    grasp_sys = GraspController(m, d, target="target_apple")
     GRIPPER_Z_OFFSET = 0.105
     states = []
     current_idx = 0
@@ -160,6 +160,12 @@ def main():
                 # Hold the stow position
                 for idx in ACTIVE_JOINTS:
                     d.ctrl[idx] = q_target[idx]
+                
+                # CRITICAL FIX 1: Hold the gripper OPEN while waiting!
+                # If we don't command the gripper, it defaults to 0 (Closed).
+                # When the fingers close empty, their collision meshes intersect,
+                # causing RRT to instantly fail with "Start position in collision!"
+                grasp_sys.command(255)
                 
                 # Check if user typed a command
                 if command_queue:
