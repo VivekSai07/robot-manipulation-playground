@@ -1,4 +1,4 @@
-﻿# Robot Manipulation Playground
+# Robot Manipulation Playground
 
 > **Project:** Universal Pick & Place Framework (The Mark Series)
 > **Core Tech:** MuJoCo 3.x, Pinocchio, OpenCV, Python
@@ -39,6 +39,22 @@ The framework has evolved significantly, progressing through different paradigms
 ### Mark 8: Autonomous Avoidance (The Full System)
 - **Concept:** The crowning achievement. Grafting the Segmentation Perception pipeline (Eyes) directly into the RRT Motion Planner (Brain).
 - **Implementation:** The robot executes a "Perception Stow", visually scans the scattered table, locates the target, and autonomously plans a heavily-arced RRT trajectory to snatch the cube from behind a 30cm glass wall without a single collision.
+
+### Mark 9: YOLOv8 Object Detection (Real-Time AI)
+- **Concept:** Fast, lightweight, bounding-box object detection for continuous "neural physics" tracking.
+- **Implementation:** Integrated `ultralytics` YOLOv8. Replaced colored geometric blocks with high-fidelity Google Scanned Objects (Oranges, Bowls). The arm continuously sweeps the area with an angled camera while YOLO predicts coordinates.
+
+### Mark 10: VR MoCap Teleoperation
+- **Concept:** High-fidelity human data collection via spatial tracking.
+- **Implementation:** Connected Oculus VR controller tracking to the IK Controller (`teleop_m10_mocap.py`). This allows 6D pose matching, moving beyond analog sticks to capture true human intent for neural network imitation learning.
+
+### Mark 11: VLM Reasoning (Qwen-VL)
+- **Concept:** Moving from rigid classes (YOLO) to semantic understanding. You can ask the robot to "pick up a healthy snack", and it will reason about the scene to find the orange.
+- **Implementation:** Integrated the `Qwen-VL-Chat` Vision-Language Model. The model analyzes an RGB frame against a text prompt to output a bounding box, which is then dynamically converted into a grab-able physics component.
+
+### Mark 12: Florence-2 (Advanced VLA Integration)
+- **Concept:** The pinnacle of our semantic pipeline. Faster and more robust reasoning than Qwen.
+- **Implementation:** Replaced the heavy Qwen model with Microsoft's `Florence-2-large`. Developed a robust State Machine that handles "Clenched Fist" self-collision protections, handles dynamic Z-heights based on the semantic target (e.g. grasping a tall bottle vs a flat box), and includes a Slip-Detection Recovery Protocol that automatically kicks in if the payload is dropped during RRT execution.
 
 ---
 

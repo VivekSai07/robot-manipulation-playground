@@ -10,8 +10,11 @@
 - [Physics & Simulation Bugs](#-1-physics--simulation-bugs-and-how-we-fixed-them)
 - [The Iron Grip — Mastering MuJoCo Contacts](#-2-the-iron-grip--mastering-mujoco-contacts)
 - [The Grand Lesson: Kinematics vs. Dynamics](#-3-the-grand-lesson-kinematics-vs-dynamics)
+- [Mark-11: VLA & Open-Vocabulary Bugs](#-4-mark-11-vla--open-vocabulary-bugs)
+- [Mark-12: Florence-2 & Deep Learning Traps](#-5-mark-12-florence-2--deep-learning-traps)
 
 ## 🔴 1. Physics & Simulation Bugs (And How We Fixed Them)
+
 
 ### Bug 1: The "Blind Grasp" — `TypeError: unhashable type: 'numpy.ndarray'`
 
@@ -110,6 +113,59 @@ Instead of fighting the physics engine, we numerically integrate the IK velocity
 ### The Result
 
 The arm now moves using **finite, simulated motor torques**. Because it has real compliance, mass, and inertia, the contact solver can maintain a steady normal force on the cube — locking it securely in the gripper no matter how fast the arm swings.
+
+## 🧠 4. Mark-11: VLA & Open-Vocabulary Bugs
+
+> Integrating OWL-ViT and LLM reasoning into physical simulation control loops.
+
+### Bug 5: The "Screw Motion" (Curved Trajectories)
+- **Symptom:** When descending to pick up the object, the robot arm moved in a curved, sweeping arc, knocking the target out of the way.
+- **Cause:** Using standard `pin.SE3.Interpolate()` couples translation and rotation. If the RRT planner leaves a 1-degree rotational error, the arm performs a 3D "screw motion" to fix the rotation while translating.
+- **Fix:** Decouple the interpolation in the `TaskSpaceTrajectory` planner. Force the translation to follow a strict Euclidean straight line, and let Pinocchio handle the rotational SLERP independently.
+
+### Bug 6: The "Ghost Payload" & Start-State Clamping
+- **Symptom:** The RRT planner consistently failed with `❌ RRT Error: Start position is currently in collision!` right after grasping an object.
+- **Cause:** Two paradoxes:
+    1. To grip an object, the virtual fingers must microscopically penetrate the object's collision mesh, which RRT flags as an illegal collision.
+    2. During RRT's virtual "what-if" planning phase, the robot arm swings around, but the physical payload remains frozen in mid-air, causing the swinging arm to crash into it.
+- **Fix (The Magician's Trick):** Instantly teleport all semantic objects high into the sky (Z=5.0) just before calculating the RRT path, then teleport them back to the gripper before unpausing the physics engine.
+
+### Bug 7: Micro-Slips and Sensor Noise
+- **Symptom:** Grazing the wall caused the task to abort, even though the robot didn't drop the object.
+- **Cause:** Rigid body physics are brittle. A slight bump caused the contact force to drop to 0 for exactly 1 millisecond. The script instantly saw `is_holding == False` and aborted.
+- **Fix:** Implemented a Sensor Debounce Filter. If contact is lost, start a `slip_debounce_time` tracker. Only abort the mission if the object remains lost for `>0.25` seconds.
+
+### Bug 8: OpenMP DLL Crash (The Python Library Collision)
+- **Symptom:** Program crashes instantly with `OMP: Error #15: Initializing libomp.dll, but found libiomp5md.dll already initialized.`
+- **Cause:** PyTorch (for the VLM) and OpenCV (for the camera window) both attempt to load their own internal C++ OpenMP multiprocessing libraries, triggering a memory safety panic on Windows.
+- **Fix:** Injected `os.environ['KMP_DUPLICATE_LIB_OK'] = 'TRUE'` at the very top of the perception pipeline.
+
+---
+
+## 👁️ 5. Mark-12: Florence-2 & Deep Learning Traps
+
+> Tackling Hugging Face architectural constraints and conversational NLP.
+
+### Bug 9: The `flash_attn` Trap (Static AST Panic)
+- **Symptom:** Script crashes with `ImportError: ... requires flash_attn` even though it's an optional dependency. After faking the module, it crashes with `ValueError: flash_attn.__spec__ is not set.`
+- **Cause:** Hugging Face's older dynamic module loader (`check_imports`) scans the text of Microsoft's custom model code and panics if it sees the word `flash_attn`. Furthermore, `importlib` requires mock modules to have a valid Python Module Spec.
+- **Fix:** Robustly monkey-patched the system by injecting a perfectly mocked module type with a valid `__spec__` into `sys.modules`, bypassing the AST checker and safely tricking `is_flash_attn_2_available()` into returning `False`.
+  ```python
+  import types, importlib.machinery
+  mock_flash_attn = types.ModuleType('flash_attn')
+  mock_flash_attn.__spec__ = importlib.machinery.ModuleSpec('flash_attn', None)
+  sys.modules['flash_attn'] = mock_flash_attn
+  ```
+
+### Bug 10: The "Clenched Fist" Self-Collision
+- **Symptom:** RRT fails immediately upon boot with a start-state collision, even when the table is empty.
+- **Cause:** During the IDLE state while waiting for a text prompt, the script sent joint hold commands but didn't command the gripper. It defaulted to 0 (closed). The empty fingers clamped together, their collision meshes perfectly intersecting, causing the RRT safety check to fail.
+- **Fix:** Explicitly commanded the gripper to stay open (255) while waiting in the IDLE state.
+
+### Bug 11: Conversational NLP Failure (Phrase Grounding)
+- **Symptom:** Florence-2 successfully found "red ball", but completely ignored "could you please pick up the red ball".
+- **Cause:** Florence-2 is not an LLM chat agent; it uses `<CAPTION_TO_PHRASE_GROUNDING>`. It looks for physical pixels representing the concept of "could you please," fails, and returns nothing.
+- **Fix:** Built a lightweight NLP text scrubber to dynamically strip polite filler words ("could you please", "can you grab", etc.) before passing the core noun phrase to the Vision-Language Model.
 
 ---
 
