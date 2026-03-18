@@ -11,7 +11,8 @@
 - [The Iron Grip — Mastering MuJoCo Contacts](#-2-the-iron-grip--mastering-mujoco-contacts)
 - [The Grand Lesson: Kinematics vs. Dynamics](#-3-the-grand-lesson-kinematics-vs-dynamics)
 - [Mark-11: VLA & Open-Vocabulary Bugs](#-4-mark-11-vla--open-vocabulary-bugs)
-- [Mark-12: Florence-2 & Deep Learning Traps](#-5-mark-12-florence-2--deep-learning-traps)
+- [Mark-12: Florence-2 & Deep Learning Traps](#️-5-mark-12-florence-2--deep-learning-traps)
+- [Mark-13: The APF End-Effector Blindspot](#-6-mark-13-the-apf-end-effector-blindspot)
 
 ## 🔴 1. Physics & Simulation Bugs (And How We Fixed Them)
 
@@ -166,6 +167,17 @@ The arm now moves using **finite, simulated motor torques**. Because it has real
 - **Symptom:** Florence-2 successfully found "red ball", but completely ignored "could you please pick up the red ball".
 - **Cause:** Florence-2 is not an LLM chat agent; it uses `<CAPTION_TO_PHRASE_GROUNDING>`. It looks for physical pixels representing the concept of "could you please," fails, and returns nothing.
 - **Fix:** Built a lightweight NLP text scrubber to dynamically strip polite filler words ("could you please", "can you grab", etc.) before passing the core noun phrase to the Vision-Language Model.
+
+---
+
+## 🛡️ 6. Mark-13: The APF End-Effector Blindspot
+
+> Translating Cartesian Repulsions into Differential Kinematics for true Whole-Body Avoidance.
+
+### Bug 12: The APF "End-Effector Blindspot"
+- **Symptom:** During reactive obstacle avoidance, an incoming pendulum successfully repelled the gripper, but completely smashed into the robot's elbow/shoulder links. 
+- **Cause:** APF math natively calculates distance from the threat to a single Cartesian point (the End-Effector). If a long robotic arm extends forward, dodging the EE in the XY plane does little to protect the massive joints sticking out mid-air.
+- **Fix:** Upgraded from a simplistic Cartesian EE-repulsion shield to a **Whole-Body Differential Kinematics Shield**. By querying Pinocchio for the Jacobians of intermediate frames (Elbow, Wrist) at 500Hz, we project Cartesian threat repulsions dynamically into Joint-Space vector velocities ($\Delta q_{rep} = J_{elbow}^T F_{repulsive}$). We then inject this vector into the IK Controller's Null-Space Optimizer (`q_posture`), forcing the robot to physically tuck its elbow backwards to survive while maintaining flawless End-Effector task stability.
 
 ---
 

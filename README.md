@@ -56,6 +56,10 @@ The framework has evolved significantly, progressing through different paradigms
 - **Concept:** The pinnacle of our semantic pipeline. Faster and more robust reasoning than Qwen.
 - **Implementation:** Replaced the heavy Qwen model with Microsoft's `Florence-2-large`. Developed a robust State Machine that handles "Clenched Fist" self-collision protections, handles dynamic Z-heights based on the semantic target (e.g. grasping a tall bottle vs a flat box), and includes a Slip-Detection Recovery Protocol that automatically kicks in if the payload is dropped during RRT execution.
 
+### Mark 13: Reactive Avoidance (APF)
+- **Concept:** Moving away from static, blind global planners (RRT) towards local, real-time 500Hz responsive systems capable of dodging moving threats dynamically.
+- **Implementation:** Implemented an **Artificial Potential Field (APF)** controller. Attractive forces pull the End-Effector towards the goal, while Repulsive forces from surrounding dynamic obstacles are translated into Joint-Space Velocities via Pinocchio Jacobians ($J^T_{link} F_{rep}$) and injected directly into the Operational Null-Space, forcing the entire arm to reflexively tuck away from danger natively out-of-the-box.
+
 ---
 
 ## 🏗️ Architectural Principles

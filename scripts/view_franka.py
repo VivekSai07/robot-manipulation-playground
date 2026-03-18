@@ -8,7 +8,7 @@ MODEL_PATH = os.path.join(
     "robots",
     "franka_panda",
     "model",
-    "scene.xml"
+    "dynamic_scene.xml"
 )
 
 # Load model
