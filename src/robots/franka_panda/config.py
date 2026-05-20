@@ -1,6 +1,6 @@
 import os
 
-ROBOT_DIR = os.path.dirname(__file__)
+ROBOT_DIR = os.path.dirname(os.path.abspath(__file__))
 
 URDF_PATH = os.path.join(ROBOT_DIR, "urdf", "panda.urdf")
 SCENE_PATH = os.path.join(ROBOT_DIR, "model", "scene.xml")
