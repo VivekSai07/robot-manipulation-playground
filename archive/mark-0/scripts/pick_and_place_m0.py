@@ -18,9 +18,10 @@ import mujoco.viewer
 
 from controllers.ik_controller_m0 import IKController
 from src.robots.franka_panda.robot import FrankaPanda
-from src.robots.franka_panda.config import Q_HOME, ARM_DOF
+from src.robots.franka_panda.config import Q_HOME, ARM_DOF, ROBOT_DIR
 
-SCENE_PATH = os.path.join(_MARK0_DIR, "scenes", "m0_scene.xml")
+# Scene must live alongside panda.xml so MuJoCo resolves meshdir="assets" correctly
+SCENE_PATH = os.path.join(ROBOT_DIR, "model", "m0_scene.xml")
 
 
 def main():

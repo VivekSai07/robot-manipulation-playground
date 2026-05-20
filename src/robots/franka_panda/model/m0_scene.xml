@@ -1,9 +1,4 @@
 <mujoco model="panda m0 scene">
-  <!--
-    REFERENCE COPY ONLY — not directly loadable.
-    The working scene lives at: src/robots/franka_panda/model/m0_scene.xml
-    It must sit alongside panda.xml so MuJoCo can resolve meshdir="assets" correctly.
-  -->
   <include file="panda.xml"/>
 
   <statistic center="0.3 0 0.4" extent="1"/>
@@ -30,10 +25,8 @@
   <worldbody>
     <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
 
-    <!-- Camera looking at the workspace -->
     <camera name="workspace_cam" pos="0.45 0 0.8" quat="1 0 0 0"/>
 
-    <!-- Floor -->
     <geom name="floor"
           size="0 0 0.05"
           type="plane"
@@ -53,7 +46,7 @@
             condim="4"/>
     </body>
 
-    <!-- Place zone marker: flat disc on the floor at PLACE_POS (0.0, 0.5) -->
+    <!-- Place zone marker: flat disc at PLACE_POS (0.0, 0.5) -->
     <geom name="place_zone" type="cylinder" size="0.04 0.001"
           pos="0.0 0.5 0.001" rgba="0.2 0.8 0.2 0.4"/>
 
