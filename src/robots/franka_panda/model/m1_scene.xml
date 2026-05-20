@@ -1,0 +1,55 @@
+<mujoco model="panda m1 scene">
+  <include file="panda.xml"/>
+
+  <statistic center="0.3 0 0.4" extent="1"/>
+
+  <option timestep="0.002"
+          iterations="100"
+          solver="Newton"
+          gravity="0 0 -9.81"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="120" elevation="-20"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge"
+             rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+             markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
+
+    <camera name="workspace_cam" pos="0.45 0 0.8" quat="1 0 0 0"/>
+
+    <geom name="floor"
+          size="0 0 0.05"
+          type="plane"
+          material="groundplane"
+          friction="1.0 0.005 0.0001"
+          solref="0.002 1"
+          solimp="0.9 0.95 0.001"/>
+
+    <!-- target_cube: aligned with PICK_POS (0.45, 0.0). z=0.02 = half-height resting on floor -->
+    <!-- Name must match GraspController default target="target_cube" -->
+    <body name="target_cube" pos="0.45 0.0 0.02">
+      <freejoint/>
+      <geom name="target_cube_geom" type="box" size="0.02 0.02 0.02" rgba="0.8 0.2 0.2 1" mass="0.05"
+            friction="1.2 0.005 0.0001"
+            solref="0.002 1"
+            solimp="0.9 0.95 0.001"
+            margin="0.001"
+            condim="4"/>
+    </body>
+
+    <!-- Place zone marker: flat disc at PLACE_POS (0.0, 0.5) -->
+    <geom name="place_zone" type="cylinder" size="0.04 0.001"
+          pos="0.0 0.5 0.001" rgba="0.2 0.8 0.2 0.4"/>
+
+  </worldbody>
+</mujoco>
