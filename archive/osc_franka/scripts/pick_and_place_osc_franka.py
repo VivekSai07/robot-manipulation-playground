@@ -1,10 +1,21 @@
+import sys
+import os
+
+_SCRIPT_DIR   = os.path.dirname(os.path.abspath(__file__))
+_OSC_DIR      = os.path.abspath(os.path.join(_SCRIPT_DIR, ".."))
+_PROJECT_ROOT = os.path.abspath(os.path.join(_SCRIPT_DIR, "..", "..", ".."))
+
+for _p in (_PROJECT_ROOT, _OSC_DIR):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+
 import time
 import numpy as np
 import pinocchio as pin
 import mujoco
 import mujoco.viewer
 
-from src.controllers.osc_controller_m3 import OSCController
+from controllers.osc_controller import OSCController
 from src.controllers.grasp_controller import GraspController
 from src.robots.franka_panda.robot import FrankaPanda
 from src.robots.franka_panda.config import (
