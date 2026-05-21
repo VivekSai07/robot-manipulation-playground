@@ -1,3 +1,4 @@
+import os
 import time
 import numpy as np
 import pinocchio as pin
@@ -7,12 +8,9 @@ import mujoco.viewer
 from src.controllers.ik_controller_m2 import IKController
 from src.controllers.grasp_controller import GraspController
 from src.robots.franka_panda.robot import FrankaPanda
-from src.robots.franka_panda.config import (
-    SCENE_PATH,
-    Q_HOME,
-    ARM_DOF,
-    ACTIVE_JOINTS
-)
+from src.robots.franka_panda.config import ROBOT_DIR, Q_HOME, ARM_DOF, ACTIVE_JOINTS
+
+SCENE_PATH = os.path.join(ROBOT_DIR, "model", "m1_scene.xml")
 
 def main():
     print("🚀 Initializing Franka Mark-2 Systems...")
@@ -135,9 +133,8 @@ def main():
                             print(f"[{d.time:.2f}s] State → {states[current_state_idx]['name']}")
 
             else:
-                # Sequence finished - hold final position steadily
-                for idx in ACTIVE_JOINTS:
-                    d.ctrl[idx] = q_target[idx]
+                print(f"[{d.time:.2f}s] Sequence complete. Shutting down.")
+                break
 
             # Gravity compensation (Franka arm joints only)
             d.qfrc_applied[:ARM_DOF] = d.qfrc_bias[:ARM_DOF]
