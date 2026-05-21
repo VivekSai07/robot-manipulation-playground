@@ -15,13 +15,13 @@ The framework has evolved significantly, progressing through different paradigms
 - **Concept:** Mapping task-space Cartesian goals to joint-space commands via the Jacobian pseudo-inverse.
 - **Implementation:** The `IKController` computes joint velocities which are then integrated into target positions for MuJoCo's built-in PD Position Actuators. This ensures the arm moves using natural, finite motor torques rather than non-physical kinematic overrides.
 
-### Mark 3: Operational Space Control (OSC)
-- **Concept:** Direct force/torque control in task space using Task-Space Impedance (PD) Control.
-- **Implementation:** The `OSCController` skips joint-position targets and directly calculates joint torques (`tau`) using the Operational Space Mass Matrix ($\Lambda$). Includes Dynamically Consistent Nullspace Projection to control redundant degrees of freedom without disturbing the end-effector.
+### Mark 3: Trajectory Planning
+- **Concept:** Replacing reactive IK chasing with pre-planned, time-scaled paths between waypoints so the end-effector always travels in a straight line through task space.
+- **Implementation:** `TaskSpaceTrajectory` uses cubic time-scaling ($s = 3\alpha^2 - 2\alpha^3$) for smooth acceleration/deceleration at segment boundaries. Translation is decoupled from rotation — forced to follow a strict Euclidean straight line — eliminating the curvy arc that caused the gripper to clip the cube on retract in M1/M2. Features a real-time trail visualiser (green dots) and moving-target sphere (red) rendered directly in the MuJoCo viewer.
 
-### Mark 4: Robust State Machines & Trajectory Planning
-- **Concept:** Dynamic "Sense & Plan" pipelines that react to the environment rather than blindly executing static waypoints.
-- **Implementation:** Real-time generation of `TaskSpaceTrajectory` (Cubic Cartesian Interpolation) based on the *actual* position of the cube. Features built-in recovery protocols for dropped payloads mid-grasp.
+### Mark 4: Sense, Plan & Recover
+- **Concept:** Dynamic "Sense & Plan" pipelines that react to the environment rather than blindly executing static waypoints, with closed-loop failure recovery.
+- **Implementation:** `generate_task_states()` reads the cube's live position from `d.xpos` each time it is called, so waypoints are always grounded in reality. A dedicated "Verify Lift" state checks `is_grasped()` after every pick; on failure it re-scans the cube, resets the state machine, and retries (up to `MAX_RETRIES`). Includes a `--sabotage` CLI flag that teleports the cube mid-grasp to stress-test the recovery path.
 
 ### Mark 5: RRT Motion Planning (The Brain)
 - **Concept:** Finding geometric, collision-free paths in joint-space using Rapidly-Exploring Random Trees (RRT) before execution.
@@ -70,17 +70,17 @@ Never mix robot definitions with task logic. The project follows a strict direct
 | Directory | Purpose |
 |---|---|
 | `robots/` | XMLs, URDFs, and a `robot.py` wrapper — **Hardware** |
-| `controllers/` | Math and solvers (IK, OSC, Grasping) — **Low-Level Control** |
+| `controllers/` | Math and solvers (IK, APF, Grasping, Teleop) — **Low-Level Control** |
 | `perception/` | Cameras, Segmentation, OpenCV — **Sensing** |
 | `planners/` | RRT, Task/Joint Space Trajectories — **Foresight** |
 | `tasks/` | State machines and viewer loops — **Execution** |
 
 ### Universal API
-Every robot (Franka, ViperX, UR5e) must expose the **exact same API** via `config.py` (e.g., `ACTIVE_JOINTS`, `ARM_DOF`, `Q_HOME`). This allows task scripts (like `pick_and_place.py`) to be completely **robot-agnostic**.
+Every robot must expose the **exact same API** via `config.py` (e.g., `ACTIVE_JOINTS`, `ARM_DOF`, `Q_HOME`). This allows task scripts to be completely **robot-agnostic**.
 
 ## Deep Dive Documentation
 
 For granular details on exactly how this framework overcomes complex robotic challenges, refer to our specialized domain readmes:
 
-- 🏗️ **[Core Architecture & Physics Tuning](src/README.md)**: Deep dive into how we solved MuJoCo simulation bugs, achieved an industrial-strength grasp ("The Iron Grip"), and the critical mathematical transition from purely Kinematic Inverse-Jacobians to Dynamic Operational Space Control (OSC).
+- 🏗️ **[Core Architecture & Physics Tuning](src/README.md)**: Deep dive into how we solved MuJoCo simulation bugs, achieved an industrial-strength grasp ("The Iron Grip"), and the critical mathematical transition from purely Kinematic Inverse-Jacobians to Trajectory-Planned Dynamic Position Control.
 - 👁️ **[Machine Perception](src/perception/README.md)**: Details on generating ground-truth Segmentation Masks vs constructing Computer Vision RGB/HSV thresholding pipelines.
