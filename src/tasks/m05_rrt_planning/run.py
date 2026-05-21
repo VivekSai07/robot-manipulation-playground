@@ -1,3 +1,4 @@
+import os
 import time
 import numpy as np
 import pinocchio as pin
@@ -9,12 +10,9 @@ from src.controllers.grasp_controller import GraspController
 from src.planners.trajectory_planner import TaskSpaceTrajectory, JointSpaceTrajectory
 from src.planners.rrt import RRT
 from src.robots.franka_panda.robot import FrankaPanda
-from src.robots.franka_panda.config import (
-    SCENE_PATH,
-    Q_HOME,
-    ARM_DOF,
-    ACTIVE_JOINTS
-)
+from src.robots.franka_panda.config import ROBOT_DIR, Q_HOME, ARM_DOF, ACTIVE_JOINTS
+
+SCENE_PATH = os.path.join(ROBOT_DIR, "model", "m5_scene.xml")
 
 def solve_virtual_ik(robot, ik, q_start, target_se3, q_posture=None):
     q_virtual = q_start.copy()
@@ -34,15 +32,15 @@ def generate_task_states(m, d, home_pos, z_offset):
     approach_offset = np.array([0, 0, 0.15])
     
     return [
-        {"name": "Approach Pick", "pos": pick_pos + approach_offset, "gripper": 255, "duration": 3.0, "rrt": True},
-        {"name": "Descend to Pick", "pos": pick_pos, "gripper": 255, "duration": 1.5, "rrt": False},
-        {"name": "Grasping", "pos": pick_pos, "gripper": 0, "duration": 1.0, "rrt": False},
-        {"name": "Verify Lift", "pos": pick_pos + approach_offset, "gripper": 0, "duration": 2.0, "rrt": False},
-        {"name": "Move to Place", "pos": place_pos + approach_offset, "gripper": 0, "duration": 4.0, "rrt": True},
-        {"name": "Lower to Place", "pos": place_pos, "gripper": 0, "duration": 2.0, "rrt": False},
-        {"name": "Release", "pos": place_pos, "gripper": 255, "duration": 1.0, "rrt": False},
-        {"name": "Retract", "pos": place_pos + approach_offset, "gripper": 255, "duration": 2.0, "rrt": False},
-        {"name": "Return to Home", "pos": home_pos, "gripper": 255, "duration": 4.0, "rrt": True},
+        {"name": "Approach Pick",   "pos": pick_pos  + approach_offset, "gripper": 255, "duration": 3.0, "rrt": True},
+        {"name": "Descend to Pick", "pos": pick_pos,                    "gripper": 255, "duration": 1.5, "rrt": False},
+        {"name": "Grasping",        "pos": pick_pos,                    "gripper": 0,   "duration": 1.0, "rrt": False},
+        {"name": "Verify Lift",     "pos": pick_pos  + approach_offset, "gripper": 0,   "duration": 2.0, "rrt": False},
+        {"name": "Move to Place",   "pos": place_pos + approach_offset, "gripper": 0,   "duration": 4.0, "rrt": True},
+        {"name": "Lower to Place",  "pos": place_pos,                   "gripper": 0,   "duration": 2.0, "rrt": False},
+        {"name": "Release",         "pos": place_pos,                   "gripper": 255, "duration": 1.0, "rrt": False},
+        {"name": "Retract",         "pos": place_pos + approach_offset, "gripper": 255, "duration": 2.0, "rrt": False},
+        {"name": "Return to Home",  "pos": home_pos,                    "gripper": 255, "duration": 4.0, "rrt": True},
     ]
 
 
@@ -107,7 +105,11 @@ def main():
                     posture_bias = q_home_pin if state["name"] == "Return to Home" else None
                     q_goal = solve_virtual_ik(robot, ik, q_current, target_se3, q_posture=posture_bias)
                     
-                    planner = RRT(m, d, ACTIVE_JOINTS, step_size=0.15)
+                    if state["name"] == "Move to Place":
+                        planner = RRT(m, d, ACTIVE_JOINTS, step_size=0.15,
+                                     obstacle_names=["obstacle_wall"], clearance=0.05)
+                    else:
+                        planner = RRT(m, d, ACTIVE_JOINTS, step_size=0.15)
                     raw_path = planner.plan(q_current[ACTIVE_JOINTS], q_goal[ACTIVE_JOINTS])
                     
                     if raw_path is None:
@@ -231,8 +233,8 @@ def main():
                         continue
 
             else:
-                for idx in ACTIVE_JOINTS:
-                    d.ctrl[idx] = q_target[idx]
+                print(f"[{d.time:.2f}s] Sequence complete. Shutting down.")
+                break
 
             d.qfrc_applied[:ARM_DOF] = d.qfrc_bias[:ARM_DOF]
 
