@@ -47,28 +47,26 @@ class RRT:
         """
         qpos_backup = self.d.qpos.copy()
         self.d.qpos[self.active_idx] = q
-        
+
         mujoco.mj_kinematics(self.m, self.d)
         mujoco.mj_collision(self.m, self.d)
-        
+
         in_collision = False
         for i in range(self.d.ncon):
             contact = self.d.contact[i]
             g1, g2 = contact.geom1, contact.geom2
-            
-            # If the contact involves our wall, use the safety clearance!
-            # Otherwise, use standard strict collision (to let the robot touch the floor/cube).
+
             is_obstacle = (g1 in self.obstacle_geom_ids) or (g2 in self.obstacle_geom_ids)
             threshold = self.clearance if is_obstacle else -1e-4
-            
+
             if contact.dist < threshold:
                 in_collision = True
                 break
-                
+
         self.d.qpos[:] = qpos_backup
         mujoco.mj_kinematics(self.m, self.d)
         mujoco.mj_collision(self.m, self.d)
-        
+
         return in_collision
 
     def _sample(self, q_goal):
