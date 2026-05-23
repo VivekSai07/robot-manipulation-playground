@@ -1,19 +1,22 @@
+import os
 import time
 import numpy as np
 import pinocchio as pin
 import mujoco
 import mujoco.viewer
 
-from src.controllers.ik_controller_m2 import IKController
+from src.controllers.ik_controller_m2 import IKController  # M2 nullspace IK
 from src.controllers.grasp_controller import GraspController
 from src.controllers.keyboard_teleop import KeyboardTeleop
 from src.robots.franka_panda.robot import FrankaPanda
 from src.robots.franka_panda.config import (
-    SCENE_PATH,
+    ROBOT_DIR,
     Q_HOME,
     ARM_DOF,
     ACTIVE_JOINTS
 )
+
+SCENE_PATH = os.path.join(ROBOT_DIR, "model", "m1_scene.xml")
 
 def main():
     print("🚀 Initializing Franka Mark-6 (Teleoperation) Systems...")
@@ -48,6 +51,10 @@ def main():
     current_pose = robot.forward_kinematics(q_home_pin)
     target_se3 = current_pose.copy()
 
+    # Cache joint limits for clamping q_target each step
+    q_min = m.jnt_range[ACTIVE_JOINTS, 0]
+    q_max = m.jnt_range[ACTIVE_JOINTS, 1]
+
     print("\n🟢 Simulation Online.")
     print("====================================")
     print("🎮 TELEOP CONTROLS:")
@@ -55,6 +62,7 @@ def main():
     print("   [A / D] : Move Left / Right (Y-axis)")
     print("   [Q / E] : Move Up / Down (Z-axis)")
     print("   [SPACE] : Toggle Gripper")
+    print("   [R]     : Reset arm to Home pose")
     print("====================================\n")
 
     # Pass the teleop key_callback directly to the MuJoCo viewer!
@@ -74,6 +82,17 @@ def main():
             # ----------------------------------------
             
             q_current = d.qpos[:robot.model.nq].copy()
+
+            # R key: reset arm to home pose
+            if teleop.reset_requested:
+                teleop.reset_requested = False
+                d.qpos[:n_joints] = Q_HOME[:n_joints]
+                d.qvel[:] = 0
+                q_target[:n_joints] = Q_HOME[:n_joints]
+                mujoco.mj_forward(m, d)
+                target_se3 = robot.forward_kinematics(q_home_pin).copy()
+                print("🔄 Reset to Home pose.")
+                continue
 
             # 1. Get Keyboard Commands
             v_des, gripper_closed = teleop.get_command()
@@ -104,9 +123,10 @@ def main():
             dq, err, done = ik.compute_velocity(q_current, target_se3, q_posture=q_home_pin)
             dq = np.clip(dq, -2.0, 2.0)
             
-            # 4. Integrate Joint Positions
-            for idx in ACTIVE_JOINTS:
+            # 4. Integrate Joint Positions and clamp to joint limits
+            for i, idx in enumerate(ACTIVE_JOINTS):
                 q_target[idx] += dq[idx] * m.opt.timestep
+                q_target[idx] = np.clip(q_target[idx], q_min[i], q_max[i])
                 d.ctrl[idx] = q_target[idx]
 
             # 5. Command Gripper

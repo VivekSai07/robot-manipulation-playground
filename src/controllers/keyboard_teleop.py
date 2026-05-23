@@ -34,6 +34,8 @@ class KeyboardTeleop:
             if current_time - self.last_toggle_time > 0.3:  # 300ms cooldown
                 self.gripper_closed = not self.gripper_closed
                 self.last_toggle_time = current_time
+                state = "CLOSED" if self.gripper_closed else "OPEN"
+                print(f"🤏 Gripper {state}")
             return
 
         # Convert ASCII keycode to uppercase character safely
@@ -73,6 +75,6 @@ class KeyboardTeleop:
         self.v_des *= self.decay
         
         # Hard stop if velocity gets microscopically small
-        np.where(np.abs(self.v_des) < 1e-4, 0.0, self.v_des)
+        self.v_des = np.where(np.abs(self.v_des) < 1e-4, 0.0, self.v_des)
         
         return current_v, self.gripper_closed
