@@ -27,6 +27,11 @@ conda-env/
 Thumbs.db
 
 # =========================
+# Local task tracker (not for version control)
+# =========================
+TODO.md
+
+# =========================
 # Logs & large files
 # =========================
 *.log
