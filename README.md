@@ -26,7 +26,10 @@ This repository contains a progressively evolving robotics framework designed to
 | M7 — Vision Pipeline | `python src/tasks/m07_machine_vision/run_vision.py --prompt "pick up the blue block"` |
 | M7 — Segmentation Pipeline | `python src/tasks/m07_machine_vision/run_segmentation.py --color blue` |
 | M7 — Debug mode | append `--debug` to either M7 command |
-| M8–M14 | *(commands added as each mark is finalized)* |
+| M8 — Autonomous Avoidance | `python src/tasks/m08_autonomous_avoidance/run.py --color red` |
+| M8 — Continuous loop mode | append `--loop` to run indefinitely after each pick+place |
+| M8 — Debug mode | append `--debug` to show segmentation view during scan |
+| M9–M14 | *(commands added as each mark is finalized)* |
 
 ---
 
