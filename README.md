@@ -7,6 +7,29 @@ This repository contains a progressively evolving robotics framework designed to
 
 ---
 
+## 🚀 How to Run
+
+> **One-time setup per terminal session** — set the project root on `PYTHONPATH`:
+> ```powershell
+> $env:PYTHONPATH = "D:\Mujoco\MyLearningSpace"   # PowerShell
+> ```
+
+| Mark | Command |
+|------|---------|
+| M1 — Basic IK | `python src/tasks/m01_basic_ik/run.py` |
+| M2 — Nullspace IK | `python src/tasks/m02_nullspace_ik/run.py` |
+| M3 — Trajectory Planner | `python src/tasks/m03_trajectory_planner/run.py` |
+| M4 — Sense, Plan & Recover | `python src/tasks/m04_sense_plan_recover/run.py` |
+| M4 — Sabotage mode | `python src/tasks/m04_sense_plan_recover/run.py --sabotage` |
+| M5 — RRT Motion Planning | `python src/tasks/m05_rrt_planning/run.py` |
+| M6 — Keyboard Teleoperation | `python src/tasks/m06_keyboard_teleop/run.py` |
+| M7 — Vision Pipeline | `python src/tasks/m07_machine_vision/run_vision.py --prompt "pick up the blue block"` |
+| M7 — Segmentation Pipeline | `python src/tasks/m07_machine_vision/run_segmentation.py --color blue` |
+| M7 — Debug mode | append `--debug` to either M7 command |
+| M8–M14 | *(commands added as each mark is finalized)* |
+
+---
+
 ## 🌟 Concept Evolution: The Mark Series
 
 The framework has evolved significantly, progressing through different paradigms of robot control, machine vision, and motion planning.
