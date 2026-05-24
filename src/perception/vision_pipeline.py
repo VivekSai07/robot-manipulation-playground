@@ -22,6 +22,9 @@ class VisionAnalyzer:
         ],
         "blue": [
             (np.array([110, 100, 100]), np.array([140, 255, 255]))
+        ],
+        "yellow": [
+            (np.array([20, 100, 100]), np.array([35, 255, 255]))
         ]
     }
 
