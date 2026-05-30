@@ -1,5 +1,6 @@
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
+import argparse
 import time
 import numpy as np
 import pinocchio as pin
@@ -16,8 +17,31 @@ from src.robots.franka_panda.config import (
     Q_HOME, ARM_DOF, ACTIVE_JOINTS, ROBOT_DIR
 )
 
-# Load the AI-specific environment with the angled camera
-YOLO_SCENE_PATH = os.path.join(ROBOT_DIR, "model", "yolo_scene.xml")
+SCENE_PATH = os.path.join(ROBOT_DIR, "model", "m9_scene.xml")
+
+# Maps YOLO COCO class names (including synonyms) → MuJoCo body names.
+# Synonyms account for how untextured object_sim meshes get classified by YOLO:
+#   cup   → "cup" ~0.78 conf, sometimes "wine glass"
+#   bowl  → "bowl" ~0.73 conf, sometimes "vase"
+#   apple → "sports ball" ~0.37 conf, sometimes "apple"
+#   banana → not reliably detected without texture (physical distractor only)
+CLASS_TO_BODY = {
+    "cup":         "target_cup",
+    "wine glass":  "target_cup",
+    "bowl":        "target_bowl",
+    "vase":        "target_bowl",
+    "apple":       "target_apple",
+    "sports ball": "target_apple",
+}
+
+# Per-object grasp center height above the floor (used for PICK z coordinate)
+OBJECT_GRASP_Z = {
+    "target_cup":    0.05,
+    "target_bowl":   0.02,
+    "target_apple":  0.04,
+    "target_banana": 0.025,
+}
+
 
 def solve_virtual_ik(robot, ik, q_start, target_se3, q_posture=None):
     q_virtual = q_start.copy()
@@ -28,100 +52,104 @@ def solve_virtual_ik(robot, ik, q_start, target_se3, q_posture=None):
             break
     return q_virtual
 
-def generate_task_states(pick_pos, place_pos, home_pos, z_offset):
+
+def generate_task_states(pick_pos, place_pos, home_pos):
     approach_offset = np.array([0, 0, 0.15])
     return [
-        {"name": "Approach Pick", "pos": pick_pos + approach_offset, "gripper": 255, "duration": 3.0, "rrt": True},
-        {"name": "Descend to Pick", "pos": pick_pos, "gripper": 255, "duration": 1.5, "rrt": False},
-        {"name": "Grasping", "pos": pick_pos, "gripper": 0, "duration": 1.0, "rrt": False},
-        {"name": "Verify Lift", "pos": pick_pos + approach_offset, "gripper": 0, "duration": 2.0, "rrt": False},
-        {"name": "Move to Place", "pos": place_pos + approach_offset, "gripper": 0, "duration": 4.0, "rrt": True},
-        {"name": "Lower to Place", "pos": place_pos, "gripper": 0, "duration": 2.0, "rrt": False},
-        {"name": "Release", "pos": place_pos, "gripper": 255, "duration": 1.0, "rrt": False},
-        {"name": "Retract", "pos": place_pos + approach_offset, "gripper": 255, "duration": 2.0, "rrt": False},
-        {"name": "Return to Home", "pos": home_pos, "gripper": 255, "duration": 4.0, "rrt": True},
+        {"name": "Approach Pick",   "pos": pick_pos  + approach_offset, "gripper": 255, "duration": 3.0, "rrt": True},
+        {"name": "Descend to Pick", "pos": pick_pos,                    "gripper": 255, "duration": 1.5, "rrt": False},
+        {"name": "Grasping",        "pos": pick_pos,                    "gripper": 0,   "duration": 1.0, "rrt": False},
+        {"name": "Verify Lift",     "pos": pick_pos  + approach_offset, "gripper": 0,   "duration": 2.0, "rrt": False},
+        {"name": "Move to Place",   "pos": place_pos + approach_offset, "gripper": 0,   "duration": 4.0, "rrt": True},
+        {"name": "Lower to Place",  "pos": place_pos,                   "gripper": 0,   "duration": 2.0, "rrt": False},
+        {"name": "Release",         "pos": place_pos,                   "gripper": 255, "duration": 1.0, "rrt": False},
+        {"name": "Retract",         "pos": place_pos + approach_offset, "gripper": 255, "duration": 2.0, "rrt": False},
+        {"name": "Return to Home",  "pos": home_pos,                    "gripper": 255, "duration": 4.0, "rrt": True},
     ]
+
 
 def generate_recovery_states(home_pos):
     return [
-        {"name": "Recovery Stow", "pos": home_pos, "gripper": 255, "duration": 3.0, "rrt": True},
-        {"name": "Perception Scan", "pos": home_pos, "gripper": 255, "duration": 0.5, "rrt": False}
+        {"name": "Recovery Stow",   "pos": home_pos, "gripper": 255, "duration": 3.0, "rrt": True},
+        {"name": "Perception Scan", "pos": home_pos, "gripper": 255, "duration": 0.5, "rrt": False},
     ]
 
-def main():
-    # ========================================================
-    # 🧠 AI SEMANTIC TARGET
-    # We replaced the primitives with High-Fidelity Google Scanned Objects!
-    # Try: "orange", "bowl", or "plate"
-    TARGET_CLASS = "orange" 
-    # ========================================================
 
-    # Map the YOLO prediction string to our physical MuJoCo body 
-    # so the tactile GraspController knows what to feel for!
-    CLASS_TO_BODY = {
-        "orange": "target_orange",
-        "bowl": "target_plate", 
-        "plate": "target_plate"
-    }
-    TARGET_BODY = CLASS_TO_BODY.get(TARGET_CLASS, "target_box")
+def main():
+    parser = argparse.ArgumentParser(description="Mark-9 YOLOv8 Agent")
+    parser.add_argument("--target", type=str, default="cup",
+                        choices=["cup", "bowl", "apple"],
+                        help="Target object for YOLO to locate (cup/bowl reliably detected; apple via sports ball synonym)")
+    parser.add_argument("--loop", action="store_true",
+                        help="Continuous mode: restart after each successful pick+place")
+    parser.add_argument("--debug", action="store_true",
+                        help="Show live YOLO camera feed window")
+    args = parser.parse_args()
+
+    TARGET_CLASS = args.target
+    TARGET_BODY = CLASS_TO_BODY.get(TARGET_CLASS, "target_cup")
+    target_synonyms = [k for k, v in CLASS_TO_BODY.items() if v == TARGET_BODY]
 
     print(f"🚀 Initializing Mark-9 YOLOv8 Agent (Target: {TARGET_CLASS.upper()})...")
-    
+
     robot = FrankaPanda()
     ik = IKController(robot, active_joint_indices=ACTIVE_JOINTS, kp_pos=5.0, kp_rot=3.0)
-    
-    # Let MuJoCo handle the path resolution naturally so panda.xml works
-    m = mujoco.MjModel.from_xml_path(YOLO_SCENE_PATH)
+
+    m = mujoco.MjModel.from_xml_path(SCENE_PATH)
     d = mujoco.MjData(m)
 
-    d.qpos[:len(Q_HOME)] = Q_HOME
+    n_joints = min(len(Q_HOME), m.nq)
+    d.qpos[:n_joints] = Q_HOME[:n_joints]
     q_home_pin = pin.neutral(robot.model)
-    q_home_pin[:len(Q_HOME)] = Q_HOME
-    
-    # 1. Immediate Initial Stow (Clear the camera view)
-    d.qpos[0] = -1.57 
+    q_home_pin[:n_joints] = Q_HOME[:n_joints]
+
+    # Cache joint limits for clamping on the Cartesian IK path
+    q_min = m.jnt_range[ACTIVE_JOINTS, 0]
+    q_max = m.jnt_range[ACTIVE_JOINTS, 1]
+
+    # Perception Stow: rotate base 90° to clear camera view
+    d.qpos[0] = -1.57
     mujoco.mj_forward(m, d)
-    
-    print("🎲 Placing semantic objects on the table in fixed positions...")
-    
-    # Pre-defined known good coordinates within the camera view
+
+    print("🎲 Placing objects on the table in fixed positions...")
+
     FIXED_POSITIONS = {
-        "target_orange":   [0.45,  0.0],
-        "target_plate": [0.45,  0.22],
-        "target_box":   [0.45, -0.22]
+        "target_cup":    [0.45, -0.15],
+        "target_bowl":   [0.45,  0.15],
+        "target_apple":  [0.42,  0.0],
+        "target_banana": [0.42, -0.12],
     }
-    
+
     for body_name, pos in FIXED_POSITIONS.items():
         try:
             c_id = m.body(body_name).id
             adr = m.jnt_qposadr[m.body_jntadr[c_id]]
-            
-            d.qpos[adr] = pos[0]
-            d.qpos[adr+1] = pos[1]
+            d.qpos[adr]     = pos[0]
+            d.qpos[adr + 1] = pos[1]
         except ValueError:
-            pass 
-            
+            pass
+
     mujoco.mj_forward(m, d)
 
-    # Initialize the YOLO Engine
     analyzer = YOLOPipeline(m, d)
-    
+
     home_pose = robot.forward_kinematics(q_home_pin)
     fixed_rotation = home_pose.rotation.copy()
     HOME_POS = home_pose.translation.copy()
 
     grasp_sys = GraspController(m, d, target=TARGET_BODY)
-    GRIPPER_Z_OFFSET = 0.105
+    GRIPPER_Z_OFFSET = 0.095
 
-    # Start the agent directly in the scanning phase!
+    # Start directly in the Perception Scan phase (skip physical stow)
     states = generate_recovery_states(HOME_POS)
-    current_idx = 1 
+    current_idx = 1
     state_start_time = 0.0
     q_target = d.qpos.copy()
-    
+
     current_trajectory = None
     current_rrt_path = None
 
+    print(f"🔍 Searching for: {target_synonyms}")
     print("\n🟢 Simulation Online. Engaging Neural Physics Loop...")
 
     with mujoco.viewer.launch_passive(m, d) as viewer:
@@ -140,80 +168,72 @@ def main():
                 t_state = d.time - state_start_time
 
                 # ==========================================
-                # THE BRAIN: AI PERCEPTION SCANNING STATE
+                # PERCEPTION SCANNING STATE
                 # ==========================================
                 if state["name"] == "Perception Scan":
                     for idx in ACTIVE_JOINTS:
                         d.ctrl[idx] = q_target[idx]
-                        
-                    # CRITICAL FIX 1: Hold the gripper OPEN while scanning!
-                    # If we don't command the gripper, it defaults to 0 (Closed).
-                    # When the fingers close empty, their collision meshes intersect,
-                    # causing RRT to instantly fail with "Start position in collision!"
-                    grasp_sys.command(255)
-                        
+                    grasp_sys.command(255)  # keep gripper open — closed empty fingers collide
+
                     if t_state > state["duration"]:
-                        print(f"🧠 YOLO is searching for: {list(CLASS_TO_BODY.keys())}...")
-                        
-                        # Call the Neural Network
-                        estimated_pos = analyzer.find_object(list(CLASS_TO_BODY.keys()))
-                        
+                        print(f"🧠 YOLO scanning for '{TARGET_CLASS}' (synonyms: {target_synonyms})...")
+                        estimated_pos = analyzer.find_object(target_synonyms)
+
                         if estimated_pos is not None:
                             print(f"✅ AI Detection Successful! Generating strategy...")
-                            
-                            # The orange is spherical, so we don't need a massive height offset 
-                            # like we did for the tall cup.
-                            dynamic_z = 0.01
-                                
-                            PICK = np.array([estimated_pos[0], estimated_pos[1], dynamic_z + GRIPPER_Z_OFFSET])
-                            PLACE = np.array([0.5, 0.5, dynamic_z + GRIPPER_Z_OFFSET]) 
-                            
-                            states = generate_task_states(PICK, PLACE, HOME_POS, GRIPPER_Z_OFFSET)
+                            dynamic_z = OBJECT_GRASP_Z.get(TARGET_BODY, 0.03)
+                            PICK  = np.array([estimated_pos[0], estimated_pos[1], dynamic_z + GRIPPER_Z_OFFSET])
+                            PLACE = np.array([0.5, 0.5, dynamic_z + GRIPPER_Z_OFFSET])
+
+                            states = generate_task_states(PICK, PLACE, HOME_POS)
                             current_idx = 0
                             state_start_time = d.time
                             current_rrt_path = None
                             current_trajectory = None
                         else:
-                            # AI failed to find it (maybe occluded?). Keep scanning.
-                            state_start_time = d.time 
-                    
+                            state_start_time = d.time  # retry next tick
+
+                    if args.debug:
+                        analyzer.show_live_feed()
+
                     d.qfrc_applied[:ARM_DOF] = d.qfrc_bias[:ARM_DOF]
                     mujoco.mj_step(m, d)
                     viewer.sync()
-                    
-                    # Update the live OpenCV Window
-                    analyzer.show_live_feed()
                     continue
 
                 # ==========================================
-                # RRT PATH GENERATION (Obstacle Avoidance)
+                # RRT PATH GENERATION
                 # ==========================================
                 if state.get("rrt", False) and current_rrt_path is None:
                     target_se3 = pin.SE3(fixed_rotation, state["pos"])
                     posture_bias = q_home_pin if state["name"] in ["Return to Home", "Recovery Stow"] else None
                     q_goal = solve_virtual_ik(robot, ik, q_current, target_se3, q_posture=posture_bias)
-                    
-                    planner = RRT(m, d, ACTIVE_JOINTS, step_size=0.15, max_iter=5000, 
-                                  clearance=0.04)
+
+                    # Ignore grasped object contacts on Move to Place — those contacts are intentional
+                    if state["name"] == "Move to Place":
+                        planner = RRT(m, d, ACTIVE_JOINTS, step_size=0.15, max_iter=5000,
+                                      ignored_body_names=[TARGET_BODY])
+                    else:
+                        planner = RRT(m, d, ACTIVE_JOINTS, step_size=0.15, max_iter=5000)
+
                     raw_path = planner.plan(q_current[ACTIVE_JOINTS], q_goal[ACTIVE_JOINTS])
-                    
+
                     if raw_path is None:
                         print("⚠️ RRT Failed to find path. Re-attempting calculation...")
-                        current_rrt_path = None 
-                        continue 
+                        current_rrt_path = None
+                        continue
                     else:
                         current_rrt_path = []
-                        for q_act in raw_path[1:]: 
+                        for q_act in raw_path[1:]:
                             q_full = q_current.copy()
                             q_full[ACTIVE_JOINTS] = q_act
                             current_rrt_path.append(q_full)
-                        
                         state["wp_dur"] = max(0.2, state["duration"] / len(current_rrt_path))
 
                 is_rrt_active = state.get("rrt", False) and current_rrt_path is not None
 
                 # ==========================================
-                # EXECUTE TRAJECTORY
+                # EXECUTE TRAJECTORY (RRT OR CARTESIAN)
                 # ==========================================
                 if is_rrt_active:
                     if current_trajectory is None:
@@ -223,14 +243,14 @@ def main():
 
                     t_traj = d.time - state_start_time
                     target_q = current_trajectory.get_position(t_traj)
-                    
-                    # Draw RRT Trail
+
                     if hasattr(viewer, 'user_scn'):
                         for wp in current_rrt_path:
                             mujoco.mjv_initGeom(
                                 viewer.user_scn.geoms[viewer.user_scn.ngeom],
                                 type=mujoco.mjtGeom.mjGEOM_SPHERE, size=np.array([0.015, 0, 0]),
-                                pos=robot.forward_kinematics(wp).translation, mat=np.eye(3).flatten(), rgba=np.array([0, 0.5, 1.0, 0.5])
+                                pos=robot.forward_kinematics(wp).translation,
+                                mat=np.eye(3).flatten(), rgba=np.array([0, 0.5, 1.0, 0.5])
                             )
                             viewer.user_scn.ngeom += 1
 
@@ -251,9 +271,10 @@ def main():
                     posture_bias = q_home_pin if state["name"] in ["Return to Home", "Recovery Stow"] else None
                     dq, err, done = ik.compute_velocity(q_current, target_se3, q_posture=posture_bias)
                     dq = np.clip(dq, -1.0, 1.0)
-                    
-                    for idx in ACTIVE_JOINTS:
+
+                    for i, idx in enumerate(ACTIVE_JOINTS):
                         q_target[idx] += dq[idx] * m.opt.timestep
+                        q_target[idx] = np.clip(q_target[idx], q_min[i], q_max[i])
                         d.ctrl[idx] = q_target[idx]
 
                 grasp_sys.command(state["gripper"])
@@ -264,17 +285,17 @@ def main():
                 # ==========================================
                 if state["gripper"] == 0 and state["name"] not in ["Grasping", "Lower to Place", "Release"]:
                     if not is_holding and t_state > 0.2:
-                        print(f"\n[{d.time:.2f}s] 🚨 SLIP DETECTED! '{TARGET_CLASS}' lost during '{state['name']}'!")
+                        print(f"\n[{d.time:.2f}s] 🚨 SLIP DETECTED during '{state['name']}'!")
                         print("🤖 Initiating Recovery Protocol...")
                         states = generate_recovery_states(HOME_POS)
                         current_idx = 0
                         state_start_time = d.time
                         current_trajectory = None
                         current_rrt_path = None
-                        continue 
+                        continue
 
                 # ==========================================
-                # NORMAL STATE TRANSITIONS
+                # STATE TRANSITIONS
                 # ==========================================
                 if is_rrt_active:
                     if t_traj > current_trajectory.duration:
@@ -286,6 +307,15 @@ def main():
                             current_rrt_path = None
                             if current_idx < len(states):
                                 print(f"[{d.time:.2f}s] State → {states[current_idx]['name']}")
+                            else:
+                                if args.loop:
+                                    print(f"[{d.time:.2f}s] 🎉 Mission Accomplished! Restarting...")
+                                    states = generate_recovery_states(HOME_POS)
+                                    current_idx = 0
+                                    state_start_time = d.time
+                                else:
+                                    print(f"[{d.time:.2f}s] 🎉 Mission Accomplished! Shutting down.")
+                                    break
                 else:
                     ignore_ik_error = state["name"] in ["Grasping", "Release", "Lower to Place", "Descend to Pick"]
                     can_transition = (t_traj > state["duration"]) and (done or ignore_ik_error)
@@ -297,25 +327,25 @@ def main():
                         if current_idx < len(states):
                             print(f"[{d.time:.2f}s] State → {states[current_idx]['name']}")
                         else:
-                            print(f"[{d.time:.2f}s] 🎉 Mission Accomplished! Entering continuous run mode...")
-                            states = generate_recovery_states(HOME_POS)
-                            current_idx = 0
-                            state_start_time = d.time
-
-            else:
-                for idx in ACTIVE_JOINTS:
-                    d.ctrl[idx] = q_target[idx]
+                            if args.loop:
+                                print(f"[{d.time:.2f}s] 🎉 Mission Accomplished! Restarting...")
+                                states = generate_recovery_states(HOME_POS)
+                                current_idx = 0
+                                state_start_time = d.time
+                            else:
+                                print(f"[{d.time:.2f}s] 🎉 Mission Accomplished! Shutting down.")
+                                break
 
             d.qfrc_applied[:ARM_DOF] = d.qfrc_bias[:ARM_DOF]
             mujoco.mj_step(m, d)
             viewer.sync()
-            
-            # Keep the AI Vision window updating smoothly!
+
             analyzer.show_live_feed()
 
             elapsed = time.time() - step_start
             if elapsed < m.opt.timestep:
                 time.sleep(m.opt.timestep - elapsed)
+
 
 if __name__ == "__main__":
     main()

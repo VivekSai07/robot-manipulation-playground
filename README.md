@@ -29,7 +29,10 @@ This repository contains a progressively evolving robotics framework designed to
 | M8 — Autonomous Avoidance | `python src/tasks/m08_autonomous_avoidance/run.py --color red` |
 | M8 — Continuous loop mode | append `--loop` to run indefinitely after each pick+place |
 | M8 — Debug mode | append `--debug` to show segmentation view during scan |
-| M9–M14 | *(commands added as each mark is finalized)* |
+| M9 — YOLOv8 Detection | `python src/tasks/m09_yolo_detection/run.py --target cup` |
+| M9 — Other targets | `--target bowl` or `--target apple` (cup/bowl most reliable) |
+| M9 — Continuous loop | append `--loop`; append `--debug` for live YOLO feed |
+| M10–M14 | *(commands added as each mark is finalized)* |
 
 ---
 

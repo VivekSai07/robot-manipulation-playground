@@ -15,16 +15,16 @@ class RRT:
     - Native MuJoCo Collision Checking
     - Dynamic Clearance Bubbles for specific obstacles
     """
-    def __init__(self, model, data, active_joint_indices, step_size=0.1, goal_bias=0.1, max_iter=3000, obstacle_names=None, clearance=0.0):
+    def __init__(self, model, data, active_joint_indices, step_size=0.1, goal_bias=0.1, max_iter=3000, obstacle_names=None, clearance=0.0, ignored_body_names=None):
         self.m = model
         self.d = data
         self.active_idx = np.array(active_joint_indices)
-        
+
         self.step_size = step_size
         self.goal_bias = goal_bias
         self.max_iter = max_iter
         self.clearance = clearance
-        
+
         # Look up and cache all geometry IDs belonging to the designated obstacles
         self.obstacle_geom_ids = set()
         if obstacle_names:
@@ -34,6 +34,16 @@ class RRT:
                     for i in range(self.m.ngeom):
                         if self.m.geom_bodyid[i] == body_id:
                             self.obstacle_geom_ids.add(i)
+
+        # Geoms whose contacts are ignored — used to skip contacts with a grasped object
+        self.ignored_geom_ids = set()
+        if ignored_body_names:
+            for name in ignored_body_names:
+                body_id = mujoco.mj_name2id(self.m, mujoco.mjtObj.mjOBJ_BODY, name)
+                if body_id != -1:
+                    for i in range(self.m.ngeom):
+                        if self.m.geom_bodyid[i] == body_id:
+                            self.ignored_geom_ids.add(i)
         
         self.q_min = self.m.jnt_range[self.active_idx, 0]
         self.q_max = self.m.jnt_range[self.active_idx, 1]
@@ -55,6 +65,10 @@ class RRT:
         for i in range(self.d.ncon):
             contact = self.d.contact[i]
             g1, g2 = contact.geom1, contact.geom2
+
+            # Skip contacts involving the grasped object — those are intentional
+            if (g1 in self.ignored_geom_ids) or (g2 in self.ignored_geom_ids):
+                continue
 
             is_obstacle = (g1 in self.obstacle_geom_ids) or (g2 in self.obstacle_geom_ids)
             threshold = self.clearance if is_obstacle else -1e-4

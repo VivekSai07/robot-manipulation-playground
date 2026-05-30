@@ -53,27 +53,32 @@ class YOLOPipeline:
         self.last_rgb = rgb.copy()
         self.last_detection = None
         
-        # 1. AI Inference
-        # verbose=False prevents YOLO from spamming the terminal every frame
-        results = self.yolo(rgb, verbose=False)[0]
-        
+        # Lower threshold for synthetic MuJoCo renders — real-photo threshold (0.25)
+        # is too strict for untextured STL meshes. 0.05 catches shape-based matches.
+        results = self.yolo(rgb, verbose=False, conf=0.05)[0]
+
         best_conf = 0.0
         best_box = None
         detected_class_name = None
-        
-        # 2. Parse Neural Network Output
+
+        # 2. Parse Neural Network Output — also print all detections for debug visibility
+        all_detections = []
         for box in results.boxes:
             cls_id = int(box.cls[0])
             conf = float(box.conf[0])
             detected_name = results.names[cls_id]
-            
-            # Find the target class with the highest confidence among the synonyms
+            all_detections.append(f"{detected_name}:{conf:.2f}")
+
             if detected_name in target_classes and conf > best_conf:
                 best_conf = conf
                 detected_class_name = detected_name
-                # Extract the [x1, y1, x2, y2] bounding box coordinates
                 best_box = box.xyxy[0].cpu().numpy()
-                
+
+        if all_detections:
+            print(f"   YOLO sees: {', '.join(all_detections)}")
+        else:
+            print(f"   YOLO sees: nothing")
+
         if best_box is None:
             return None
             

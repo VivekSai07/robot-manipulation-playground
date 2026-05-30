@@ -192,10 +192,11 @@ def main():
                     posture_bias = q_home_pin if state["name"] in ["Return to Home", "Recovery Stow"] else None
                     q_goal = solve_virtual_ik(robot, ik, q_current, target_se3, q_posture=posture_bias)
 
-                    # Only "Move to Place" crosses the wall — apply clearance only there
+                    # Only "Move to Place" crosses the wall and carries the grasped object
                     if state["name"] == "Move to Place":
                         planner = RRT(m, d, ACTIVE_JOINTS, step_size=0.15, max_iter=5000,
-                                      obstacle_names=["obstacle_wall"], clearance=0.04)
+                                      obstacle_names=["obstacle_wall"], clearance=0.04,
+                                      ignored_body_names=[TARGET_BODY])
                     else:
                         planner = RRT(m, d, ACTIVE_JOINTS, step_size=0.15, max_iter=5000)
 

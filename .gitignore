@@ -32,6 +32,11 @@ Thumbs.db
 TODO.md
 
 # =========================
+# External object asset library (cloned separately, ~93MB of STLs)
+# =========================
+src/robots/franka_panda/model/object_sim/
+
+# =========================
 # Logs & large files
 # =========================
 *.log

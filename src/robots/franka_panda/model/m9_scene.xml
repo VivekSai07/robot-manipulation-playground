@@ -1,0 +1,138 @@
+<mujoco model="panda m9 scene">
+  <include file="panda.xml"/>
+
+  <statistic center="0.3 0 0.4" extent="1"/>
+
+  <option timestep="0.002"
+          iterations="100"
+          solver="Newton"
+          gravity="0 0 -9.81"/>
+
+  <visual>
+    <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
+    <rgba haze="0.15 0.25 0.35 1"/>
+    <global azimuth="120" elevation="-20"/>
+  </visual>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+    <texture type="2d" name="groundplane" builtin="checker" mark="edge"
+             rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+             markrgb="0.8 0.8 0.8" width="300" height="300"/>
+    <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+
+    <!-- CUP (object_sim) — YOLO detects as "cup" ~0.78 conf -->
+    <mesh name="cup_vis"  file="../object_sim/cup/cup.stl"/>
+    <mesh name="cup_c0"   file="../object_sim/cup/contact0.stl"/>
+    <mesh name="cup_c1"   file="../object_sim/cup/contact1.stl"/>
+    <mesh name="cup_c2"   file="../object_sim/cup/contact2.stl"/>
+    <mesh name="cup_c3"   file="../object_sim/cup/contact3.stl"/>
+    <mesh name="cup_c4"   file="../object_sim/cup/contact4.stl"/>
+    <mesh name="cup_c5"   file="../object_sim/cup/contact5.stl"/>
+    <mesh name="cup_c6"   file="../object_sim/cup/contact6.stl"/>
+    <mesh name="cup_c7"   file="../object_sim/cup/contact7.stl"/>
+    <mesh name="cup_c8"   file="../object_sim/cup/contact8.stl"/>
+    <mesh name="cup_c9"   file="../object_sim/cup/contact9.stl"/>
+    <mesh name="cup_c10"  file="../object_sim/cup/contact10.stl"/>
+    <mesh name="cup_c11"  file="../object_sim/cup/contact11.stl"/>
+
+    <!-- BOWL (object_sim) — YOLO detects as "bowl" ~0.73 conf -->
+    <mesh name="bowl_vis"  file="../object_sim/bowl/bowl.stl"/>
+    <mesh name="bowl_c0"   file="../object_sim/bowl/contact0.stl"/>
+    <mesh name="bowl_c1"   file="../object_sim/bowl/contact1.stl"/>
+    <mesh name="bowl_c2"   file="../object_sim/bowl/contact2.stl"/>
+    <mesh name="bowl_c3"   file="../object_sim/bowl/contact3.stl"/>
+    <mesh name="bowl_c4"   file="../object_sim/bowl/contact4.stl"/>
+    <mesh name="bowl_c5"   file="../object_sim/bowl/contact5.stl"/>
+    <mesh name="bowl_c6"   file="../object_sim/bowl/contact6.stl"/>
+    <mesh name="bowl_c7"   file="../object_sim/bowl/contact7.stl"/>
+    <mesh name="bowl_c8"   file="../object_sim/bowl/contact8.stl"/>
+    <mesh name="bowl_c9"   file="../object_sim/bowl/contact9.stl"/>
+    <mesh name="bowl_c10"  file="../object_sim/bowl/contact10.stl"/>
+    <mesh name="bowl_c11"  file="../object_sim/bowl/contact11.stl"/>
+
+    <!-- APPLE (object_sim) — YOLO detects as "sports ball" ~0.37 or "apple" ~0.16 -->
+    <mesh name="apple_vis" file="../object_sim/apple/apple.stl"/>
+    <mesh name="apple_c0"  file="../object_sim/apple/contact0.stl"/>
+    <mesh name="apple_c1"  file="../object_sim/apple/contact1.stl"/>
+
+    <!-- BANANA (object_sim) — physical distractor; not reliably detected by YOLO without texture -->
+    <mesh name="banana_vis" file="../object_sim/banana/banana.stl"/>
+    <mesh name="banana_c0"  file="../object_sim/banana/contact0.stl"/>
+    <mesh name="banana_c1"  file="../object_sim/banana/contact1.stl"/>
+    <mesh name="banana_c2"  file="../object_sim/banana/contact2.stl"/>
+    <mesh name="banana_c3"  file="../object_sim/banana/contact3.stl"/>
+    <mesh name="banana_c4"  file="../object_sim/banana/contact4.stl"/>
+  </asset>
+
+  <worldbody>
+    <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
+
+    <!-- Angled AI camera: wider FOV to cover full workspace -->
+    <camera name="workspace_cam" pos="1.1 0.0 0.5" xyaxes="0 1 0 -0.5 0 1"/>
+
+    <geom name="floor"
+          size="0 0 0.05"
+          type="plane"
+          material="groundplane"
+          friction="1.0 0.005 0.0001"
+          solref="0.002 1"
+          solimp="0.9 0.95 0.001"/>
+
+    <!-- CUP -->
+    <body name="target_cup" pos="0.45 -0.15 0.05">
+      <freejoint/>
+      <geom name="cup_visual" type="mesh" mesh="cup_vis" rgba="0.9 0.9 0.9 1" contype="0" conaffinity="0"/>
+      <geom name="cup_col0"  type="mesh" mesh="cup_c0"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="cup_col1"  type="mesh" mesh="cup_c1"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="cup_col2"  type="mesh" mesh="cup_c2"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="cup_col3"  type="mesh" mesh="cup_c3"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="cup_col4"  type="mesh" mesh="cup_c4"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="cup_col5"  type="mesh" mesh="cup_c5"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="cup_col6"  type="mesh" mesh="cup_c6"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="cup_col7"  type="mesh" mesh="cup_c7"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="cup_col8"  type="mesh" mesh="cup_c8"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="cup_col9"  type="mesh" mesh="cup_c9"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="cup_col10" type="mesh" mesh="cup_c10" density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="cup_col11" type="mesh" mesh="cup_c11" density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+    </body>
+
+    <!-- BOWL -->
+    <body name="target_bowl" pos="0.45 0.15 0.03">
+      <freejoint/>
+      <geom name="bowl_visual" type="mesh" mesh="bowl_vis" rgba="0.8 0.5 0.2 1" contype="0" conaffinity="0"/>
+      <geom name="bowl_col0"  type="mesh" mesh="bowl_c0"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="bowl_col1"  type="mesh" mesh="bowl_c1"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="bowl_col2"  type="mesh" mesh="bowl_c2"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="bowl_col3"  type="mesh" mesh="bowl_c3"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="bowl_col4"  type="mesh" mesh="bowl_c4"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="bowl_col5"  type="mesh" mesh="bowl_c5"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="bowl_col6"  type="mesh" mesh="bowl_c6"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="bowl_col7"  type="mesh" mesh="bowl_c7"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="bowl_col8"  type="mesh" mesh="bowl_c8"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="bowl_col9"  type="mesh" mesh="bowl_c9"  density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="bowl_col10" type="mesh" mesh="bowl_c10" density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="bowl_col11" type="mesh" mesh="bowl_c11" density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+    </body>
+
+    <!-- APPLE -->
+    <body name="target_apple" pos="0.42 0.0 0.04">
+      <freejoint/>
+      <geom name="apple_visual" type="mesh" mesh="apple_vis" rgba="0.7 0.1 0.1 1" contype="0" conaffinity="0"/>
+      <geom name="apple_col0" type="mesh" mesh="apple_c0" density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="apple_col1" type="mesh" mesh="apple_c1" density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+    </body>
+
+    <!-- BANANA (distractor — physical object but not reliably YOLO-detectable without texture) -->
+    <body name="target_banana" pos="0.42 -0.12 0.03">
+      <freejoint/>
+      <geom name="banana_visual" type="mesh" mesh="banana_vis" rgba="1 1 0 1" contype="0" conaffinity="0"/>
+      <geom name="banana_col0" type="mesh" mesh="banana_c0" density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="banana_col1" type="mesh" mesh="banana_c1" density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="banana_col2" type="mesh" mesh="banana_c2" density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="banana_col3" type="mesh" mesh="banana_c3" density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+      <geom name="banana_col4" type="mesh" mesh="banana_c4" density="1250" contype="1" conaffinity="1" friction="1 0.5 0.01" margin="0.0005" condim="4" group="3" rgba="0 0 0 0"/>
+    </body>
+
+  </worldbody>
+</mujoco>
